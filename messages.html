@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel - Secure Inbox</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body { align-items: flex-start; padding-top: 40px; padding-bottom: 40px; }
+    .admin-wrap { position: relative; z-index: 1; max-width: 860px; width: 100%; }
+  </style>
+</head>
+<body>
+
+  <!-- Login Panel -->
+  <div class="container" id="login-panel">
+    <div class="card">
+      <h1 style="font-size:1rem;">&#x1F512; Restricted Area</h1>
+      <p class="subtitle" style="margin-bottom:28px;">Enter admin credentials</p>
+
+      <div class="error-box" id="login-error">Access Denied: Invalid Password</div>
+
+      <label class="label">Access Code</label>
+      <input
+        type="password"
+        id="password-input"
+        placeholder="••••••"
+        style="text-align:center; font-size:1rem; letter-spacing:0.3em; margin-bottom:20px;"
+        onkeydown="if(event.key==='Enter') login()"
+      />
+
+      <button class="btn btn-green" onclick="login()">Unlock</button>
+
+      <a class="admin-link" href="index.html">&#x2190; Return Home</a>
+    </div>
+  </div>
+
+  <!-- Admin Panel -->
+  <div class="admin-wrap" id="admin-panel" style="display:none;">
+
+    <div class="admin-header">
+      <div>
+        <h1>&#x1F4E8; Secure Inbox</h1>
+        <p class="meta" id="msg-count">Loading...</p>
+      </div>
+      <div class="header-btns">
+        <button class="btn btn-outline" onclick="loadMessages()">&#x21BB; Sync</button>
+        <button class="btn btn-red" onclick="logout()">&#x1F512; Lock</button>
+      </div>
+    </div>
+
+    <div class="message-list" id="message-list">
+      <div class="loading-box">Decrypting Data...</div>
+    </div>
+
+    <div style="text-align:center; margin-top:28px;">
+      <a class="back-link" href="index.html">&#x2190; Back to Home</a>
+    </div>
+  </div>
+
+  <script>
+    let currentPassword = sessionStorage.getItem('admin_pass') || '';
+
+    if (currentPassword) showAdmin();
+
+    function login() {
+      const pass = document.getElementById('password-input').value;
+      if (!pass) return;
+      currentPassword = pass;
+      document.getElementById('login-error').style.display = 'none';
+      loadMessages();
+    }
+
+    function logout() {
+      currentPassword = '';
+      sessionStorage.removeItem('admin_pass');
+      document.getElementById('admin-panel').style.display = 'none';
+      document.getElementById('login-panel').style.display = 'flex';
+      document.getElementById('password-input').value = '';
+    }
+
+    function showAdmin() {
+      document.getElementById('login-panel').style.display = 'none';
+      document.getElementById('admin-panel').style.display = 'block';
+      loadMessages();
+    }
+
+    async function loadMessages() {
+      const list = document.getElementById('message-list');
+      list.innerHTML = '<div class="loading-box">Decrypting Data...</div>';
+
+      try {
+        const res = await fetch('/api/messages?password=' + encodeURIComponent(currentPassword));
+
+        if (res.status === 401) {
+          document.getElementById('login-error').style.display = 'block';
+          currentPassword = '';
+          sessionStorage.removeItem('admin_pass');
+          document.getElementById('admin-panel').style.display = 'none';
+          document.getElementById('login-panel').style.display = 'flex';
+          return;
+        }
+
+        const data = await res.json();
+        sessionStorage.setItem('admin_pass', currentPassword);
+        showAdmin();
+
+        const msgs = data.messages;
+        document.getElementById('msg-count').textContent = msgs.length + ' message(s) found';
+
+        if (msgs.length === 0) {
+          list.innerHTML = '<div class="empty-box">Inbox is empty.<br/><br/>No secrets to reveal.</div>';
+          return;
+        }
+
+        list.innerHTML = msgs.map(m => {
+          const date = new Date(m.createdAt).toLocaleString();
+          return `
+            <div class="message-card" id="msg-${m.id}">
+              <div class="message-meta">
+                <span>ID: #${String(m.id).padStart(4,'0')} &nbsp;|&nbsp; ${date}</span>
+                <button class="del-btn" onclick="deleteMsg(${m.id})">Delete</button>
+              </div>
+              <div class="message-content">${escapeHtml(m.content)}</div>
+            </div>
+          `;
+        }).join('');
+
+      } catch (e) {
+        list.innerHTML = '<div class="empty-box">Error loading messages.</div>';
+      }
+    }
+
+    async function deleteMsg(id) {
+      if (!confirm('DELETE THIS MESSAGE? THIS CANNOT BE UNDONE.')) return;
+
+      const res = await fetch('/api/messages/' + id + '?password=' + encodeURIComponent(currentPassword), {
+        method: 'DELETE'
+      });
+
+      if (res.ok) {
+        const el = document.getElementById('msg-' + id);
+        if (el) el.remove();
+        const remaining = document.querySelectorAll('.message-card').length;
+        document.getElementById('msg-count').textContent = remaining + ' message(s) found';
+        if (remaining === 0) {
+          document.getElementById('message-list').innerHTML =
+            '<div class="empty-box">Inbox is empty.<br/><br/>No secrets to reveal.</div>';
+        }
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
+  </script>
+</body>
+</html>
