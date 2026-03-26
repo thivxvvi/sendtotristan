@@ -31,17 +31,46 @@ body::before {
   pointer-events: none;
 }
 
+/* Make sure parent is positioned */
+.parent {
+  position: relative;
+}
+
 .gif-wrapper {
   position: absolute;
-  top: 150px;; /* move up */
+  top: 22vh; /* default for most screens */
   left: 50%;
   transform: translateX(-50%);
   z-index: 3;
-  
 }
 
 .gif-wrapper img {
-  width: 160px;
+  width: 18vw;       /* responsive scaling */
+  max-width: 160px; /* limit on big screens */
+  min-width: 100px; /* prevent too small on tiny phones */
+  height: auto;
+}
+
+/* 📱 Mobile tuning */
+@media (max-width: 768px) {
+  .gif-wrapper {
+    top: 18vh;
+  }
+
+  .gif-wrapper img {
+    width: 28vw;
+  }
+}
+
+/* 💻 Large screens / desktop tuning */
+@media (min-width: 1200px) {
+  .gif-wrapper {
+    top: 20vh;
+  }
+
+  .gif-wrapper img {
+    width: 140px;
+  }
 }
 
 .container {
