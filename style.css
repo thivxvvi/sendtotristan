@@ -65,7 +65,7 @@ body::before {
 /* 💻 Large screens / desktop tuning */
 @media (min-width: 1200px) {
   .gif-wrapper {
-    top: 0vh;
+    top: 15vh;
   }
 
   .gif-wrapper img {
